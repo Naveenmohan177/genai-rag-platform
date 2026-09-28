@@ -1,8 +1,10 @@
 ﻿import os
 import io
+import re
 import time
 import datetime
 import sqlite3
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 from typing import List, Dict, Any
@@ -15,91 +17,145 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from openai import OpenAI as DirectOpenAI
 
-# --- PAGE CONFIGURATION ---
+# --- PAGE CONFIGURATION & MINIMALIST SLATE THEME ---
 st.set_page_config(
-    page_title="AI Voice Assistant & Spatial 3D Platform",
+    page_title="Cognitive Intelligence Core",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- SESSION STATE INITIALIZATION FOR THEMES & COLOR ACCENTS ---
-if "theme_mode" not in st.session_state:
-    st.session_state.theme_mode = "Dark Cyber"
-if "accent_color" not in st.session_state:
-    st.session_state.accent_color = "#38BDF8"  # Electric Blue Default
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-if "engine" not in st.session_state:
-    st.session_state.engine = None
-
-# --- DYNAMIC THEME & COLOR STYLING ---
-theme_bg = "#020617" if st.session_state.theme_mode == "Dark Cyber" else ("#0F172A" if st.session_state.theme_mode == "Neon Cyberpunk" else "#F8FAFC")
-card_bg = "#0F172A" if st.session_state.theme_mode != "Light Minimal" else "#FFFFFF"
-text_color = "#F8FAFC" if st.session_state.theme_mode != "Light Minimal" else "#0F172A"
-accent = st.session_state.accent_color
-
-st.markdown(f"""
+# Custom High-Contrast Professional Styling (No Emojis/Logos)
+st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
     
-    html, body, [class*="css"] {{
-        font-family: 'Space Grotesk', sans-serif;
-    }}
-    .stApp {{
-        background-color: {theme_bg};
-        color: {text_color};
-    }}
-    .stSidebar {{
-        background: {card_bg};
-        border-right: 1px solid {accent}33;
-    }}
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    .stApp {
+        background-color: #030712;
+        color: #F9FAFB;
+    }
+    .stSidebar {
+        background-color: #0B0F19;
+        border-right: 1px solid #1E293B;
+    }
     
-    .header-banner {{
-        background: linear-gradient(135deg, {accent}22 0%, {theme_bg} 100%);
-        border: 1px solid {accent}44;
-        border-radius: 12px;
-        padding: 1.25rem 2rem;
+    /* Sleek Clean Header */
+    .header-box {
+        background: #0B0F19;
+        border: 1px solid #1E293B;
+        border-radius: 8px;
+        padding: 1.25rem 1.75rem;
         margin-bottom: 1.5rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-    }}
-    .header-title {{
-        font-size: 1.75rem;
+    }
+    .header-title {
+        font-size: 1.5rem;
         font-weight: 700;
-        color: {accent};
-    }}
-    
-    .chat-bubble-user {{
-        background-color: {accent}22;
-        border-left: 4px solid {accent};
-        padding: 0.85rem 1.25rem;
-        border-radius: 8px;
-        margin-bottom: 0.75rem;
-        color: {text_color};
-    }}
-    .chat-bubble-ai {{
-        background-color: {card_bg};
-        border: 1px solid {accent}44;
-        padding: 0.85rem 1.25rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        color: {text_color};
-    }}
+        color: #F8FAFC;
+        letter-spacing: -0.02em;
+    }
+    .header-subtitle {
+        font-size: 0.825rem;
+        color: #64748B;
+        margin-top: 0.15rem;
+    }
+    .status-tag {
+        background-color: #0284C7;
+        color: #FFFFFF;
+        padding: 0.3rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+    }
+
+    /* Cards & Metric Visuals */
+    .metric-card {
+        background: #0B0F19;
+        border: 1px solid #1E293B;
+        border-radius: 6px;
+        padding: 1rem;
+        text-align: center;
+    }
+    .metric-val {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #38BDF8;
+    }
+    .metric-lbl {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .output-card {
+        background: #0B0F19;
+        border: 1px solid #1E293B;
+        border-left: 3px solid #0EA5E9;
+        border-radius: 6px;
+        padding: 1.25rem;
+        color: #E2E8F0;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+
+    .citation-card {
+        background: #0F172A;
+        border: 1px solid #1E293B;
+        border-radius: 4px;
+        padding: 0.85rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        color: #94A3B8;
+    }
+
+    .stButton>button {
+        background-color: #0284C7;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 4px;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        width: 100%;
+        transition: background-color 0.15s ease;
+    }
+    .stButton>button:hover {
+        background-color: #0369A1;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# --- VOICE ASSISTANT AGENT ENGINE ---
-class VoiceAgentEngine:
-    def __init__(self, openai_api_key: str):
+# --- SECURITY GUARDRAIL LAYER ---
+class SecurityGuardrails:
+    @staticmethod
+    def mask_pii(text: str) -> str:
+        text = re.sub(r'sk-[a-zA-Z0-9]{32,}', '[REDACTED_API_KEY]', text)
+        text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[REDACTED_EMAIL]', text)
+        text = re.sub(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', '[REDACTED_PHONE]', text)
+        return text
+
+    @staticmethod
+    def validate_safety(text: str) -> bool:
+        forbidden_vectors = ["ignore previous rules", "override system prompt", "jailbreak mode"]
+        return not any(vec in text.lower() for vec in forbidden_vectors)
+
+# --- ADVANCED HYBRID RAG & COGNITIVE ENGINE ---
+class EnterpriseCognitiveEngine:
+    def __init__(self, openai_api_key: str, temperature: float = 0.1):
         os.environ["OPENAI_API_KEY"] = openai_api_key
         self.embeddings = OpenAIEmbeddings()
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=temperature)
         self.client = DirectOpenAI(api_key=openai_api_key)
         self.faiss_db = None
         self.bm25_retriever = None
 
-    def index_documents(self, file_paths: List[str]) -> int:
+    def index_documents(self, file_paths: List[str], chunk_size: int = 450) -> int:
         documents = []
         for path in file_paths:
             if path.endswith(".pdf"):
@@ -108,78 +164,97 @@ class VoiceAgentEngine:
                 loader = TextLoader(path, encoding="utf-8")
             documents.extend(loader.load())
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=450, chunk_overlap=60)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=60)
         chunks = text_splitter.split_documents(documents)
         self.faiss_db = FAISS.from_documents(chunks, self.embeddings)
         self.bm25_retriever = BM25Retriever.from_documents(chunks)
-        self.bm25_retriever.k = 3
+        self.bm25_retriever.k = 4
         return len(chunks)
 
-    def process_voice_query(self, query: str) -> str:
+    def execute_query(self, query: str, mode: str) -> Dict[str, Any]:
+        start = time.time()
+        
+        if not SecurityGuardrails.validate_safety(query):
+            return {
+                "answer": "Security Policy Enforcement: Intercepted untrusted prompt structure.",
+                "sources": [],
+                "latency_ms": 0.0
+            }
+
+        sanitized_query = SecurityGuardrails.mask_pii(query)
+        sources = []
         context_str = ""
+
         if self.faiss_db and self.bm25_retriever:
-            dense_docs = [doc for doc, _ in self.faiss_db.similarity_search_with_score(query, k=3)]
-            sparse_docs = self.bm25_retriever.invoke(query)
-            context_str = "\n\n".join([d.page_content for d in dense_docs + sparse_docs])
+            dense_docs = [doc for doc, _ in self.faiss_db.similarity_search_with_score(sanitized_query, k=4)]
+            sparse_docs = self.bm25_retriever.invoke(sanitized_query)
+            
+            # Reciprocal Rank Fusion (RRF)
+            scores = {}
+            doc_map = {}
+            for rank, doc in enumerate(dense_docs + sparse_docs):
+                c = doc.page_content
+                scores[c] = scores.get(c, 0) + (1 / (60 + rank + 1))
+                doc_map[c] = doc
 
-        prompt_template = """
-        You are a Voice-First AI Assistant. Keep answers direct, concise, and conversational (1-3 sentences max) so they sound natural when spoken aloud.
-        Context:
-        {context}
+            sorted_contents = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)[:3]
+            reranked = [doc_map[c] for c in sorted_contents]
+            context_str = "\n\n".join([d.page_content for d in reranked])
+            sources = [d.page_content for d in reranked]
 
-        User Voice Query: {question}
-        Spoken Response:
-        """
-        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-        return self.llm.invoke(prompt.format(context=context_str if context_str else "N/A", question=query)).content
+        if mode == "Deep Chain-of-Thought Reasoning":
+            sys_instructions = "Perform systematic step-by-step technical analysis using this context:\n" + context_str
+        elif mode == "Code & Manifest Synthesizer":
+            sys_instructions = "Generate production-ready code, Kubernetes manifests, or API definitions based on:\n" + context_str
+        else:
+            sys_instructions = "Provide a direct, high-precision technical response grounded in context:\n" + context_str
 
-# --- HEADER BRANDING ---
-st.markdown(f"""
-<div class="header-banner">
+        prompt = PromptTemplate(template="{sys}\n\nUser Query: {q}\nResponse:", input_variables=["sys", "q"])
+        response = self.llm.invoke(prompt.format(sys=sys_instructions, q=sanitized_query)).content
+        elapsed = round((time.time() - start) * 1000, 2)
+
+        return {"answer": response, "sources": sources, "latency_ms": elapsed}
+
+# --- CLEAN ENTERPRISE HEADER ---
+st.markdown("""
+<div class="header-box">
     <div>
-        <div class="header-title">🎙️ AI VOICE ASSISTANT & 3D SPATIAL CORE</div>
-        <div style="color: #94A3B8; font-size: 0.85rem;">Voice Recognition | Speech Synthesis | WebGL Spatial Hologram | Multi-Theme Customizer</div>
+        <div class="header-title">COGNITIVE KNOWLEDGE ARCHITECTURE</div>
+        <div class="header-subtitle">Hybrid Vector Search Engine | WebGL Spatial Graph | Automated Telemetry Audit</div>
     </div>
     <div>
-        <span style="background: {accent}22; color: {accent}; border: 1px solid {accent}; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">VOICE SYSTEM ACTIVE</span>
+        <span class="status-tag">SYSTEM ACTIVE</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR CONTROL PANEL: THEMES & COLOR PICKER ---
+if "engine" not in st.session_state:
+    st.session_state.engine = None
+
+# --- SIDEBAR CONTROL MATRIX ---
 with st.sidebar:
-    st.markdown("### 🎨 Theme & Lighting Customizer")
+    st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#0EA5E9; margin-bottom:0.5rem;'>1. SYSTEM AUTHENTICATION</div>", unsafe_allow_html=True)
+    api_key = st.text_input("OpenAI Access Key", type="password")
     
-    st.session_state.theme_mode = st.selectbox(
-        "Display Mode",
-        ["Dark Cyber", "Light Minimal", "Neon Cyberpunk"]
-    )
+    st.markdown("<hr style='border-color: #1E293B; margin: 1rem 0;'>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#0EA5E9; margin-bottom:0.5rem;'>2. COGNITIVE PARAMETERS</div>", unsafe_allow_html=True)
     
-    color_choice = st.radio(
-        "Accent Lighting Color",
-        ["Electric Blue", "Emerald Green", "Neon Purple", "Solar Amber"]
-    )
-    
-    color_map = {
-        "Electric Blue": "#38BDF8",
-        "Emerald Green": "#34D399",
-        "Neon Purple": "#C084FC",
-        "Solar Amber": "#FBBF24"
-    }
-    st.session_state.accent_color = color_map[color_choice]
+    reasoning_mode = st.selectbox("Execution Mode", ["Direct Vector RAG", "Deep Chain-of-Thought Reasoning", "Code & Manifest Synthesizer"])
+    temperature = st.slider("Model Temperature", 0.0, 1.0, 0.1, 0.05)
+    chunk_size = st.slider("Vector Chunk Size", 200, 1000, 450, 50)
 
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
-    st.markdown("### 🔑 Engine Authentication")
-    api_key = st.text_input("OpenAI Key", type="password")
-    if st.button("Activate Voice Agent"):
+    if st.button("Initialize Engine"):
         if api_key:
-            st.session_state.engine = VoiceAgentEngine(openai_api_key=api_key)
-            st.success("Voice Engine Active")
+            st.session_state.engine = EnterpriseCognitiveEngine(openai_api_key=api_key, temperature=temperature)
+            st.success("Cognitive Core Online")
+        else:
+            st.error("Key required")
 
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
-    st.markdown("### 📚 Knowledge Ingestion")
-    uploaded_files = st.file_uploader("Upload Knowledge Specs", accept_multiple_files=True, type=["pdf", "txt"])
-    if uploaded_files and st.button("Index Docs"):
+    st.markdown("<hr style='border-color: #1E293B; margin: 1rem 0;'>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#0EA5E9; margin-bottom:0.5rem;'>3. KNOWLEDGE BASE INGESTION</div>", unsafe_allow_html=True)
+    
+    uploaded_files = st.file_uploader("Upload Specs (PDF/TXT)", accept_multiple_files=True, type=["pdf", "txt"])
+    if uploaded_files and st.button("Build Index"):
         if st.session_state.engine:
             saved_paths = []
             os.makedirs("./temp_docs", exist_ok=True)
@@ -188,47 +263,58 @@ with st.sidebar:
                 with open(path, "wb") as file:
                     file.write(f.getbuffer())
                 saved_paths.append(path)
-            chunks = st.session_state.engine.index_documents(saved_paths)
-            st.success(f"Indexed {chunks} chunks")
+            
+            chunks = st.session_state.engine.index_documents(saved_paths, chunk_size=chunk_size)
+            st.success(f"Indexed {chunks} chunks.")
+        else:
+            st.error("Initialize engine first.")
 
-# --- MAIN WORKSPACE LAYOUT ---
-col_3d, col_voice = st.columns([1, 1.2])
+# --- MAIN WORKSPACE LAYOUT (3D GRAPH + CONSOLE) ---
+col_graph, col_console = st.columns([1, 1.2])
 
-with col_3d:
-    st.markdown(f"<div style='font-size:0.9rem; font-weight:700; color:{accent}; margin-bottom:0.5rem;'>3D HOLOGRAPHIC CORE</div>", unsafe_allow_html=True)
+with col_graph:
+    st.markdown("<div style='font-size:0.85rem; font-weight:700; color:#0EA5E9; margin-bottom:0.5rem;'>SPATIAL KNOWLEDGE MATRIX (3D)</div>", unsafe_allow_html=True)
     
-    # DYNAMIC COLOR-ADAPTIVE THREE.JS SPHERE
-    hex_color = accent.replace("#", "0x")
-    threejs_html = f"""
+    # Clean Three.js WebGL Node Graph Visualization (Zero Logos)
+    threejs_html = """
     <!DOCTYPE html>
     <html>
     <head>
-        <style> body {{ margin: 0; overflow: hidden; background: transparent; }} </style>
+        <style> body { margin: 0; overflow: hidden; background-color: #030712; } </style>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     </head>
     <body>
         <script>
             const scene = new THREE.Scene();
             const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({{ antialias: true, alpha: true }});
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(380, 380);
             document.body.appendChild(renderer.domElement);
 
-            const geometry = new THREE.SphereGeometry(2, 48, 48);
-            const material = new THREE.MeshStandardMaterial({{ color: {hex_color}, wireframe: true, emissive: {hex_color}, emissiveIntensity: 0.3 }});
-            const moon = new THREE.Mesh(geometry, material);
-            scene.add(moon);
+            // Create Spatial Wireframe Node Sphere
+            const geometry = new THREE.IcosahedronGeometry(2, 2);
+            const material = new THREE.MeshStandardMaterial({ color: 0x0EA5E9, wireframe: true });
+            const sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
 
-            const light = new THREE.PointLight({hex_color}, 2, 100);
+            // Add Orbital Ring
+            const ringGeo = new THREE.RingGeometry(2.6, 2.65, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x38BDF8, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            scene.add(ring);
+
+            const light = new THREE.PointLight(0x0EA5E9, 2, 100);
             light.position.set(10, 10, 10);
             scene.add(light);
             camera.position.z = 5.5;
 
-            function animate() {{
+            function animate() {
                 requestAnimationFrame(animate);
-                moon.rotation.y += 0.005;
+                sphere.rotation.y += 0.003;
+                ring.rotation.z += 0.002;
                 renderer.render(scene, camera);
-            }}
+            }
             animate();
         </script>
     </body>
@@ -236,79 +322,39 @@ with col_3d:
     """
     components.html(threejs_html, height=390)
 
-with col_voice:
-    st.markdown(f"<div style='font-size:0.9rem; font-weight:700; color:{accent}; margin-bottom:0.5rem;'>INTERACTIVE VOICE CONVERSATION CHAT</div>", unsafe_allow_html=True)
+with col_console:
+    st.markdown("<div style='font-size:0.85rem; font-weight:700; color:#0EA5E9; margin-bottom:0.5rem;'>EXECUTION CONSOLE</div>", unsafe_allow_html=True)
+    
+    text_input = st.text_area("Query Console", height=100, placeholder="Enter architecture query or engineering requirement...")
+    
+    if st.button("Execute Query"):
+        if text_input and st.session_state.engine:
+            with st.spinner("Processing through Cognitive Engine..."):
+                res = st.session_state.engine.execute_query(text_input, mode=reasoning_mode)
+                answer = res["answer"]
+                latency = res["latency_ms"]
+                sources = res["sources"]
 
-    # NATIVE WEB SPEECH VOICE INPUT CONTROL
-    speech_rec_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            .voice-btn {{
-                background-color: {accent};
-                color: #000000;
-                border: none;
-                padding: 0.75rem 1.5rem;
-                font-weight: 700;
-                border-radius: 8px;
-                cursor: pointer;
-                width: 100%;
-                font-family: 'Space Grotesk', sans-serif;
-            }}
-            .voice-btn:hover {{ opacity: 0.9; }}
-        </style>
-    </head>
-    <body>
-        <button class="voice-btn" onclick="startSpeechRecognition()">🎙️ CLICK TO SPEAK TO AI</button>
-        <p id="transcript-output" style="color: #94A3B8; font-size: 0.85rem; margin-top: 0.5rem;"></p>
+                m1, m2 = st.columns(2)
+                m1.markdown(f"<div class='metric-card'><div class='metric-lbl'>Execution Latency</div><div class='metric-val'>{latency} ms</div></div>", unsafe_allow_html=True)
+                m2.markdown(f"<div class='metric-card'><div class='metric-lbl'>Retrieved Chunks</div><div class='metric-val'>{len(sources)}</div></div>", unsafe_allow_html=True)
 
-        <script>
-            function startSpeechRecognition() {{
-                window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!window.SpeechRecognition) {{
-                    alert("Speech Recognition not supported in this browser. Please use Chrome.");
-                    return;
-                }}
-                const recognition = new SpeechRecognition();
-                recognition.interimResults = false;
-                
-                document.getElementById("transcript-output").innerText = "Listening... Speak now.";
+                st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='output-card'>{answer}</div>", unsafe_allow_html=True)
 
-                recognition.onresult = (e) => {{
-                    const text = e.results[0][0].transcript;
-                    document.getElementById("transcript-output").innerText = "Recognized: " + text;
-                    window.parent.postMessage({{type: "streamlit:setComponentValue", value: text}}, "*");
-                }};
-                
-                recognition.start();
-            }}
-        </script>
-    </body>
-    </html>
-    """
-    voice_input_text = st.text_input("Or type your query below:", key="text_query_field")
-
-    if st.button("Execute Voice/Text Query") and voice_input_text:
-        if st.session_state.engine:
-            with st.spinner("Processing AI response..."):
-                reply = st.session_state.engine.process_voice_query(voice_input_text)
-                st.session_state.chat_history.append({"user": voice_input_text, "ai": reply})
-                
-                # AUTOMATIC TTS READOUT
-                clean_reply = reply.replace("'", "\\'").replace("\n", " ")
+                # Text-To-Speech Synthesis Output
+                clean_answer = answer.replace("'", "\\'").replace("\n", " ")
                 tts_script = f"""
                 <script>
-                    var msg = new SpeechSynthesisUtterance('{clean_reply}');
+                    var msg = new SpeechSynthesisUtterance('{clean_answer}');
                     window.speechSynthesis.speak(msg);
                 </script>
                 """
                 components.html(tts_script, height=0)
-        else:
-            st.error("Please activate the Voice Agent with an API key first.")
 
-    # RENDER CHAT HISTORY LOG
-    st.markdown("<div style='margin-top:1.5rem;'></div>", unsafe_allow_html=True)
-    for chat in reversed(st.session_state.chat_history):
-        st.markdown(f"<div class='chat-bubble-user'><b>👤 User:</b> {chat['user']}</div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='chat-bubble-ai'><b>🤖 AI Voice Agent:</b> {chat['ai']}</div>", unsafe_allow_html=True)
+                if sources:
+                    st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#64748B; margin-top:1rem;'>VECTOR CITATIONS</div>", unsafe_allow_html=True)
+                    for idx, src in enumerate(sources):
+                        st.markdown(f"<div class='citation-card'><b>Rank {idx+1}:</b><br>{src}</div>", unsafe_allow_html=True)
+        else:
+            st.error("Please enter a query and initialize engine first.")
