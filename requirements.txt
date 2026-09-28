@@ -1,0 +1,9 @@
+﻿streamlit
+langchain
+langchain-community
+langchain-openai
+faiss-cpu
+rank_bm25
+pypdf
+openai
+tiktoken
