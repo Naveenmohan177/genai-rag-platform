@@ -1,0 +1,41 @@
+﻿name: Production DevSecOps & GitOps Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  security-and-build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Run Vulnerability Scan on K8s Manifests
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'config'
+        hide-shortcut-literals: 'true'
+        exit-code: '0'
+        severity: 'CRITICAL,HIGH'
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build & Push Container Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/sample-app:${{ github.sha }}
+
+    - name: Update K8s Manifest Tag
+      run: |
+        sed -i 's|image: docker.io/.*|image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/sample-app:${{ github.sha }}|g' k8s/app-deployment.yaml
+        git config local user.email "action@github.com"
+        git config local user.name "GitHub Action"
+        git commit -am "Update app image tag to ${{ github.sha }} [skip ci]" || echo "No changes"
+        git push

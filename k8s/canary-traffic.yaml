@@ -1,0 +1,33 @@
+﻿apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: sample-app-route
+  namespace: default
+spec:
+  hosts:
+  - "sample-app.local"
+  http:
+  - route:
+    - destination:
+        host: sample-app-service
+        subset: v1
+      weight: 90
+    - destination:
+        host: sample-app-service
+        subset: v2
+      weight: 10
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: sample-app-subsets
+  namespace: default
+spec:
+  host: sample-app-service
+  subsets:
+  - name: v1
+    labels:
+      version: "1.0.0"
+  - name: v2
+    labels:
+      version: "2.0.0"

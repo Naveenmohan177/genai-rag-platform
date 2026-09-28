@@ -1,0 +1,17 @@
+﻿apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k8s-app-alerts
+  namespace: default
+spec:
+  groups:
+  - name: application-health
+    rules:
+    - alert: HighMemoryUsage
+      expr: container_memory_working_set_bytes{pod=~"sample-app.*"} > 200000000
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: "High Memory Warning on {{ $labels.pod }}"
+        description: "Pod memory usage exceeded 200MB threshold."
