@@ -4,9 +4,9 @@ import re
 import time
 import datetime
 import sqlite3
-import json
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from typing import List, Dict, Any
 
 from langchain_community.document_loaders import TextLoader, PyPDFLoader
@@ -17,165 +17,129 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from openai import OpenAI as DirectOpenAI
 
-# --- HIGH-END GLASSMORPHIC ENTERPRISE STYLING ---
+# --- PAGE CONFIGURATION & HIGH-CONTRAST DARK THEME ---
 st.set_page_config(
-    page_title="Enterprise Cognitive Intelligence Platform",
+    page_title="Cybernetic Cognitive Core 3D",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-family: 'Space Grotesk', sans-serif;
     }
-    
     .stApp {
-        background-color: #030712;
-        color: #F3F4F6;
+        background-color: #020617;
+        color: #F8FAFC;
     }
-    
-    /* Glassmorphism Sidebar */
     .stSidebar {
-        background: rgba(17, 24, 39, 0.75);
-        backdrop-filter: blur(12px);
-        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(16px);
+        border-right: 1px solid rgba(56, 189, 248, 0.15);
     }
     
-    /* Brand Header Banner */
-    .brand-banner {
-        background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);
-        border: 1px solid rgba(59, 130, 246, 0.2);
+    /* Header Container */
+    .header-banner {
+        background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(3, 7, 18, 0.9) 100%);
+        border: 1px solid rgba(56, 189, 248, 0.25);
         border-radius: 12px;
-        padding: 1.5rem 2rem;
-        margin-bottom: 2rem;
+        padding: 1.25rem 2rem;
+        margin-bottom: 1.5rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
     }
-    .brand-title {
+    .header-title {
         font-size: 1.75rem;
         font-weight: 700;
-        color: #FFFFFF;
-        letter-spacing: -0.03em;
+        color: #38BDF8;
+        letter-spacing: -0.02em;
     }
-    .brand-sub {
-        font-size: 0.875rem;
-        color: #9CA3AF;
-        margin-top: 0.25rem;
+    .header-sub {
+        font-size: 0.85rem;
+        color: #94A3B8;
     }
     
-    /* Sleek Metric Badges */
-    .metric-card {
-        background: rgba(31, 41, 55, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 10px;
-        padding: 1.25rem;
+    /* Sleek Cards */
+    .metric-box {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        border-radius: 8px;
+        padding: 1rem;
         text-align: center;
     }
     .metric-val {
-        font-size: 1.875rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: #38BDF8;
     }
     .metric-lbl {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 600;
-        color: #9CA3AF;
+        color: #64748B;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-top: 0.25rem;
     }
     
-    /* Console & Output Boxes */
     .console-card {
-        background: rgba(17, 24, 39, 0.8);
-        border: 1px solid rgba(59, 130, 246, 0.2);
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(56, 189, 248, 0.2);
         border-radius: 10px;
         padding: 1.5rem;
-        color: #F9FAFB;
-        font-size: 0.975rem;
+        color: #F1F5F9;
+        font-size: 0.95rem;
         line-height: 1.7;
-    }
-    
-    .citation-card {
-        background: rgba(31, 41, 55, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-left: 3px solid #0EA5E9;
-        border-radius: 6px;
-        padding: 1rem;
-        margin-bottom: 0.75rem;
-        font-size: 0.875rem;
-        color: #D1D5DB;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# --- TELEMETRY & AUDIT DATABASE ---
-def init_analytics_db():
+# --- TELEMETRY DATABASE ---
+def init_db():
     conn = sqlite3.connect("platform_telemetry.db")
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS execution_logs 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  session_id TEXT, 
-                  query TEXT, 
-                  response TEXT, 
-                  groundedness_score REAL,
-                  latency_ms REAL,
-                  chunks_retrieved INTEGER,
-                  timestamp DATETIME)''')
+                  session_id TEXT, query TEXT, response TEXT, 
+                  mode TEXT, latency_ms REAL, timestamp DATETIME)''')
     conn.commit()
     conn.close()
 
-def log_execution(session_id: str, query: str, response: str, groundedness: float, latency: float, chunks_count: int):
+def log_event(session_id: str, query: str, response: str, mode: str, latency: float):
     conn = sqlite3.connect("platform_telemetry.db")
     c = conn.cursor()
-    c.execute("INSERT INTO execution_logs (session_id, query, response, groundedness_score, latency_ms, chunks_retrieved, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-              (session_id, query, response, groundedness, latency, chunks_count, datetime.datetime.utcnow()))
+    c.execute("INSERT INTO execution_logs (session_id, query, response, mode, latency_ms, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+              (session_id, query, response, mode, latency, datetime.datetime.utcnow()))
     conn.commit()
     conn.close()
 
-def fetch_telemetry_dataframe():
-    conn = sqlite3.connect("platform_telemetry.db")
-    df = pd.read_sql_query("SELECT id, session_id, query, response, groundedness_score, latency_ms, chunks_retrieved, timestamp FROM execution_logs ORDER BY timestamp DESC", conn)
-    conn.close()
-    return df
+init_db()
 
-init_analytics_db()
-
-# --- SECURITY GUARDRAIL LAYER ---
-class EnterpriseGuardrails:
+# --- SECURITY GUARDRAILS ---
+class SecurityGuardrails:
     @staticmethod
     def sanitize_input(text: str) -> str:
-        text = re.sub(r'sk-[a-zA-Z0-9]{32,}', '[REDACTED_API_KEY]', text)
+        text = re.sub(r'sk-[a-zA-Z0-9]{32,}', '[REDACTED_KEY]', text)
         text = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[REDACTED_EMAIL]', text)
-        text = re.sub(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', '[REDACTED_PHONE]', text)
         return text
 
-    @staticmethod
-    def check_injection_vector(text: str) -> bool:
-        forbidden_vectors = ["ignore system prompt", "override rules", "jailbreak mode", "unrestricted access"]
-        return any(vec in text.lower() for vec in forbidden_vectors)
-
-# --- ADVANCED RAG & HALLUCINATION EVALUATOR ---
-class EnterpriseRAGEngine:
-    def __init__(self, openai_api_key: str):
+# --- ADVANCED RAG & AGENT ENGINE ---
+class Advanced3DAgentEngine:
+    def __init__(self, openai_api_key: str, temp: float = 0.1):
         os.environ["OPENAI_API_KEY"] = openai_api_key
         self.embeddings = OpenAIEmbeddings()
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=temp)
         self.client = DirectOpenAI(api_key=openai_api_key)
         self.faiss_db = None
         self.bm25_retriever = None
 
-    def transcribe_audio_stream(self, audio_bytes: bytes) -> str:
+    def transcribe_audio(self, audio_bytes: bytes) -> str:
         audio_file = io.BytesIO(audio_bytes)
-        audio_file.name = "stream_input.wav"
-        transcript = self.client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-        return transcript.text
+        audio_file.name = "audio_stream.wav"
+        return self.client.audio.transcriptions.create(model="whisper-1", file=audio_file).text
 
-    def index_documents(self, file_paths: List[str]) -> int:
+    def index_documents(self, file_paths: List[str], chunk_size: int = 450) -> int:
         documents = []
         for path in file_paths:
             if path.endswith(".pdf"):
@@ -184,95 +148,58 @@ class EnterpriseRAGEngine:
                 loader = TextLoader(path, encoding="utf-8")
             documents.extend(loader.load())
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=450, chunk_overlap=60)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=60)
         chunks = text_splitter.split_documents(documents)
         self.faiss_db = FAISS.from_documents(chunks, self.embeddings)
         self.bm25_retriever = BM25Retriever.from_documents(chunks)
         self.bm25_retriever.k = 4
         return len(chunks)
 
-    def _evaluate_groundedness(self, context: str, answer: str) -> float:
-        """Evaluates whether the generated response is strictly grounded in the retrieved context."""
-        if not context or "N/A" in context:
-            return 0.5
-        eval_prompt = f"Context: {context}\nAnswer: {answer}\nRate factual groundedness from 0.0 to 1.0. Output ONLY the floating point number."
-        try:
-            res = self.llm.invoke(eval_prompt).content.strip()
-            return float(re.findall(r"0\.\d+|1\.0|\d", res)[0])
-        except:
-            return 0.95
-
-    def execute_hybrid_search(self, query: str) -> Dict[str, Any]:
-        start_time = time.time()
-        
-        if EnterpriseGuardrails.check_injection_vector(query):
-            return {
-                "answer": "Security Policy Enforcement: Potential prompt injection vector intercepted.",
-                "sources": [],
-                "groundedness": 0.0,
-                "latency_ms": 0.0
-            }
-
-        sanitized_query = EnterpriseGuardrails.sanitize_input(query)
+    def process_query(self, query: str, mode: str) -> Dict[str, Any]:
+        start = time.time()
+        sanitized = SecurityGuardrails.sanitize_input(query)
         sources = []
         context_str = ""
 
         if self.faiss_db and self.bm25_retriever:
-            dense_docs = [doc for doc, _ in self.faiss_db.similarity_search_with_score(sanitized_query, k=4)]
-            sparse_docs = self.bm25_retriever.invoke(sanitized_query)
+            dense_docs = [doc for doc, _ in self.faiss_db.similarity_search_with_score(sanitized, k=4)]
+            sparse_docs = self.bm25_retriever.invoke(sanitized)
             
-            # Reciprocal Rank Fusion (RRF) Reranking
-            rrf_scores = {}
-            doc_mapping = {}
+            # Reciprocal Rank Fusion
+            scores = {}
+            doc_map = {}
             for rank, doc in enumerate(dense_docs + sparse_docs):
-                content = doc.page_content
-                rrf_scores[content] = rrf_scores.get(content, 0) + (1 / (60 + rank + 1))
-                doc_mapping[content] = doc
+                c = doc.page_content
+                scores[c] = scores.get(c, 0) + (1 / (60 + rank + 1))
+                doc_map[c] = doc
 
-            sorted_contents = sorted(rrf_scores.keys(), key=lambda x: rrf_scores[x], reverse=True)[:3]
-            reranked_docs = [doc_mapping[c] for c in sorted_contents]
-            context_str = "\n\n".join([d.page_content for d in reranked_docs])
-            
-            for rank, doc in enumerate(reranked_docs):
-                sources.append({
-                    "rank": rank + 1,
-                    "content": doc.page_content,
-                    "source": doc.metadata.get("source", "Knowledge Base"),
-                    "page": doc.metadata.get("page", 1)
-                })
+            sorted_c = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)[:3]
+            reranked = [doc_map[c] for c in sorted_c]
+            context_str = "\n\n".join([d.page_content for d in reranked])
+            sources = [d.page_content for d in reranked]
 
-        prompt_template = """
-        You are an Enterprise Systems Architect.
-        Provide a precise technical answer strictly grounded in the provided context.
+        if mode == "Deep Chain-of-Thought Reasoning":
+            sys_prompt = "Perform step-by-step architectural reasoning using this context:\n" + context_str
+        elif mode == "Executive Summary":
+            sys_prompt = "Provide a high-level executive bulleted summary based on:\n" + context_str
+        else:
+            sys_prompt = "Answer technically and precisely based on context:\n" + context_str
 
-        Context:
-        {context}
+        prompt = PromptTemplate(template="{sys}\n\nQuestion: {q}\nAnswer:", input_variables=["sys", "q"])
+        res = self.llm.invoke(prompt.format(sys=sys_prompt, q=sanitized)).content
+        latency = round((time.time() - start) * 1000, 2)
 
-        User Query: {question}
-        Response:
-        """
-        prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-        response = self.llm.invoke(prompt.format(context=context_str if context_str else "N/A", question=sanitized_query)).content
-
-        groundedness = self._evaluate_groundedness(context_str, response)
-        elapsed_ms = round((time.time() - start_time) * 1000, 2)
-
-        return {
-            "answer": response,
-            "sources": sources,
-            "groundedness": groundedness,
-            "latency_ms": elapsed_ms
-        }
+        return {"answer": res, "sources": sources, "latency_ms": latency}
 
 # --- HEADER BRANDING ---
 st.markdown("""
-<div class="brand-banner">
+<div class="header-banner">
     <div>
-        <div class="brand-title">Cognitive Knowledge Architecture Platform</div>
-        <div class="brand-sub">Enterprise Vector Search | Automated Hallucination Guard | Voice-Enabled Agent</div>
+        <div class="header-title">CYBERNETIC COGNITIVE CORE 3D</div>
+        <div class="header-sub">Spatial WebGL Engine | Multi-Agent RAG | Real-Time Voice Intelligence</div>
     </div>
     <div>
-        <span style="background-color: #0284C7; color: #FFFFFF; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">PROD INSTANCE</span>
+        <span style="background: rgba(56, 189, 248, 0.2); color: #38BDF8; border: 1px solid #38BDF8; padding: 0.35rem 0.85rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">3D SPATIAL ACTIVE</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -280,22 +207,29 @@ st.markdown("""
 if "engine" not in st.session_state:
     st.session_state.engine = None
 
-# --- SIDEBAR CONTROL ---
+# --- SIDEBAR CONFIGURATION & TOOL MATRIX ---
 with st.sidebar:
-    st.markdown("<div style='font-size:0.85rem; font-weight:700; color:#F9FAFB; margin-bottom:0.5rem;'>1. AUTHENTICATION</div>", unsafe_allow_html=True)
-    api_key = st.text_input("OpenAI Access Token", type="password")
+    st.markdown("<div style='font-size:0.85rem; font-weight:700; color:#38BDF8; margin-bottom:0.5rem;'>1. AUTHENTICATION</div>", unsafe_allow_html=True)
+    api_key = st.text_input("OpenAI Access Key", type="password")
     
-    if st.button("Initialize Platform"):
-        if api_key:
-            st.session_state.engine = EnterpriseRAGEngine(openai_api_key=api_key)
-            st.success("Platform Engine Active")
-        else:
-            st.error("Token required")
+    st.markdown("<hr style='border-color: rgba(56, 189, 248, 0.15); margin: 1rem 0;'>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.85rem; font-weight:700; color:#38BDF8; margin-bottom:0.5rem;'>2. AGENT HYPERPARAMETERS</div>", unsafe_allow_html=True)
+    
+    reasoning_mode = st.selectbox("Reasoning Engine Mode", ["Direct Vector RAG", "Deep Chain-of-Thought Reasoning", "Executive Summary"])
+    temperature = st.slider("LLM Temperature", 0.0, 1.0, 0.1, 0.05)
+    chunk_size = st.slider("Embedding Chunk Size", 200, 1000, 450, 50)
 
-    st.markdown("<hr style='border-color: rgba(255,255,255,0.08); margin: 1.25rem 0;'>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.85rem; font-weight:700; color:#F9FAFB; margin-bottom:0.5rem;'>2. KNOWLEDGE BASE INGESTION</div>", unsafe_allow_html=True)
+    if st.button("Initialize Cognitive Engine"):
+        if api_key:
+            st.session_state.engine = Advanced3DAgentEngine(openai_api_key=api_key, temp=temperature)
+            st.success("Cognitive Core Online")
+        else:
+            st.error("API Key required")
+
+    st.markdown("<hr style='border-color: rgba(56, 189, 248, 0.15); margin: 1rem 0;'>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.85rem; font-weight:700; color:#38BDF8; margin-bottom:0.5rem;'>3. KNOWLEDGE INGESTION</div>", unsafe_allow_html=True)
     
-    uploaded_files = st.file_uploader("Upload Tech Specs (PDF/TXT)", accept_multiple_files=True, type=["pdf", "txt"])
+    uploaded_files = st.file_uploader("Upload Specs (PDF/TXT)", accept_multiple_files=True, type=["pdf", "txt"])
     if uploaded_files and st.button("Build Vector Index"):
         if st.session_state.engine:
             saved_paths = []
@@ -306,85 +240,140 @@ with st.sidebar:
                     file.write(f.getbuffer())
                 saved_paths.append(path)
             
-            chunks_cnt = st.session_state.engine.index_documents(saved_paths)
-            st.success(f"Indexed {chunks_cnt} chunks.")
+            chunks = st.session_state.engine.index_documents(saved_paths, chunk_size=chunk_size)
+            st.success(f"Indexed {chunks} chunks.")
         else:
-            st.error("Initialize platform first.")
+            st.error("Initialize engine first.")
 
-# --- WORKSPACE TABS ---
-tab_execution, tab_analytics = st.tabs(["Execution Console", "Telemetry & Audit Logs"])
+# --- MAIN WORKSPACE LAYOUT (3D MOON + CONSOLE) ---
+col_3d, col_console = st.columns([1, 1.2])
 
-with tab_execution:
-    col_text, col_audio = st.columns([2, 1])
+with col_3d:
+    st.markdown("<div style='font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:0.5rem;'>SPATIAL 3D HOLOGRAPHIC CORE</div>", unsafe_allow_html=True)
+    
+    # THREE.JS 3D MOON / TECH SPHERE WEBGL EMBED
+    threejs_moon_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body { margin: 0; overflow: hidden; background-color: #020617; }
+            #canvas-container { width: 100%; height: 380px; }
+        </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    </head>
+    <body>
+        <div id="canvas-container"></div>
+        <script>
+            const container = document.getElementById('canvas-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
 
-    with col_text:
-        text_prompt = st.text_area("Query Console", height=100, placeholder="Ask a technical architecture question...")
+            // Create Holographic Moon / Tech Sphere
+            const geometry = new THREE.SphereGeometry(2, 64, 64);
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x0EA5E9,
+                wireframe: true,
+                emissive: 0x0284C7,
+                emissiveIntensity: 0.4,
+                roughness: 0.2
+            });
+            const moon = new THREE.Mesh(geometry, material);
+            scene.add(moon);
 
-    with col_audio:
-        audio_stream = st.audio_input("Voice Input Stream")
+            // Orbital Ring
+            const ringGeo = new THREE.RingGeometry(2.6, 2.7, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x38BDF8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            scene.add(ring);
 
-    active_query = None
+            // Lights
+            const pointLight = new THREE.PointLight(0x38BDF8, 2, 100);
+            pointLight.position.set(10, 10, 10);
+            scene.add(pointLight);
+            
+            const ambientLight = new THREE.AmbientLight(0x020617, 1.5);
+            scene.add(ambientLight);
+
+            camera.position.z = 6;
+
+            // Interactive Dragging
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+
+            document.addEventListener('mousedown', () => isDragging = true);
+            document.addEventListener('mouseup', () => isDragging = false);
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+                    moon.rotation.y += deltaX * 0.005;
+                    moon.rotation.x += deltaY * 0.005;
+                }
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            // Animation Loop
+            function animate() {
+                requestAnimationFrame(animate);
+                if (!isDragging) {
+                    moon.rotation.y += 0.003;
+                    ring.rotation.z += 0.002;
+                }
+                renderer.render(scene, camera);
+            }
+            animate();
+        </script>
+    </body>
+    </html>
+    """
+    components.html(threejs_moon_html, height=390)
+
+with col_console:
+    st.markdown("<div style='font-size:0.9rem; font-weight:700; color:#38BDF8; margin-bottom:0.5rem;'>MULTIMODAL INTELLIGENCE CONSOLE</div>", unsafe_allow_html=True)
+    
+    text_input = st.text_area("Text Query Interface", height=90, placeholder="Type technical query...")
+    audio_stream = st.audio_input("Voice Input Stream")
+
+    active_prompt = None
 
     if audio_stream and st.session_state.engine:
-        with st.spinner("Transcribing audio input..."):
-            active_query = st.session_state.engine.transcribe_audio_stream(audio_stream.getvalue())
-            st.info(f"Transcribed: {active_query}")
+        with st.spinner("Transcribing voice via Whisper..."):
+            active_prompt = st.session_state.engine.transcribe_audio(audio_stream.getvalue())
+            st.info(f"Transcribed: {active_prompt}")
 
-    if text_prompt and not active_query:
-        if st.button("Execute Query"):
-            active_query = text_prompt
+    if text_input and not active_prompt:
+        if st.button("Execute Intelligence Query"):
+            active_prompt = text_input
 
-    if active_query:
+    if active_prompt:
         if st.session_state.engine:
-            with st.spinner("Executing retrieval, inference & groundedness validation..."):
-                res = st.session_state.engine.execute_hybrid_search(active_query)
+            with st.spinner("Processing through 3D Spatial RAG Engine..."):
+                res = st.session_state.engine.process_query(active_prompt, mode=reasoning_mode)
                 answer = res["answer"]
                 latency = res["latency_ms"]
-                groundedness = res["groundedness"]
                 sources = res["sources"]
 
-                log_execution("prod-session-01", active_query, answer, groundedness, latency, len(sources))
+                log_event("prod-3d-01", active_prompt, answer, reasoning_mode, latency)
 
-                # Display Response & Real-time Metrics
-                c1, c2, c3 = st.columns(3)
-                c1.markdown(f"<div class='metric-card'><div class='metric-lbl'>Latency</div><div class='metric-val'>{latency} ms</div></div>", unsafe_allow_html=True)
-                c2.markdown(f"<div class='metric-card'><div class='metric-lbl'>Groundedness Index</div><div class='metric-val'>{int(groundedness * 100)}%</div></div>", unsafe_allow_html=True)
-                c3.markdown(f"<div class='metric-card'><div class='metric-lbl'>Retrieved Chunks</div><div class='metric-val'>{len(sources)}</div></div>", unsafe_allow_html=True)
+                m1, m2 = st.columns(2)
+                m1.markdown(f"<div class='metric-box'><div class='metric-lbl'>Execution Latency</div><div class='metric-val'>{latency} ms</div></div>", unsafe_allow_html=True)
+                m2.markdown(f"<div class='metric-box'><div class='metric-lbl'>Mode Active</div><div class='metric-val' style='font-size:1rem; padding-top:0.3rem;'>{reasoning_mode}</div></div>", unsafe_allow_html=True)
 
-                st.markdown("<div style='margin-top:1.25rem;'></div>", unsafe_allow_html=True)
+                st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='console-card'>{answer}</div>", unsafe_allow_html=True)
 
-                # Text-To-Speech Script
+                # Text-To-Speech Output
                 tts_script = f"<script>var msg = new SpeechSynthesisUtterance('{answer.replace("'", "")}'); window.speechSynthesis.speak(msg);</script>"
-                st.components.v1.html(tts_script, height=0)
+                components.html(tts_script, height=0)
 
-                st.markdown("<div style='font-size:0.9rem; font-weight:700; color:#F3F4F6; margin: 1.5rem 0 0.5rem 0;'>RETRIEVED VECTOR CITATIONS</div>", unsafe_allow_html=True)
-                for src in sources:
-                    st.markdown(f"""
-                    <div class='citation-card'>
-                        <div style='font-size:0.75rem; color:#9CA3AF; margin-bottom:0.25rem;'>RANK #{src['rank']} | SOURCE: {src['source']} | PAGE: {src['page']}</div>
-                        {src['content']}
-                    </div>
-                    """, unsafe_allow_html=True)
+                with st.expander("Retrieved Context Chunks"):
+                    for idx, src in enumerate(sources):
+                        st.info(f"**Chunk {idx+1}:**\n{src}")
         else:
-            st.error("Please enter an Access Token and click Initialize Platform first.")
-
-with tab_analytics:
-    st.markdown("<div style='font-size:0.9rem; font-weight:700; color:#F3F4F6; margin-bottom:1rem;'>SYSTEM AUDIT LOGS & EXPORT DATA</div>", unsafe_allow_html=True)
-    
-    if st.button("Refresh Telemetry"):
-        df = fetch_telemetry_dataframe()
-        
-        if not df.empty:
-            st.dataframe(df, use_container_width=True)
-
-            # Export Telemetry Options
-            col_csv, col_json = st.columns(2)
-            with col_csv:
-                csv_data = df.to_csv(index=False).encode('utf-8')
-                st.download_button("Download Audit Log (CSV)", csv_data, "telemetry_audit.csv", "text/csv")
-            with col_json:
-                json_data = df.to_json(orient="records")
-                st.download_button("Download Audit Log (JSON)", json_data, "telemetry_audit.json", "application/json")
-        else:
-            st.info("No query telemetry recorded yet.")
+            st.error("Please enter OpenAI API Key and initialize engine first.")
