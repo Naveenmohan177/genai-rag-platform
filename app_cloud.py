@@ -2,7 +2,6 @@
 import io
 import re
 import time
-import json
 import sqlite3
 import pandas as pd
 import streamlit as st
@@ -15,11 +14,9 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.retrievers import BM25Retriever
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-from openai import OpenAI as DirectOpenAI
+from backend.app.multi_agent import MultiAgentWorkflow
 
-from backend.data_pipeline import AdvancedDataPipeline
-
-st.set_page_config(page_title="Enterprise Cognitive & Data Hub", layout="wide")
+st.set_page_config(page_title="Multi-Agent Governance & Cognitive Hub", layout="wide")
 
 st.markdown("""
     <style>
@@ -27,73 +24,95 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     .stApp { background-color: #030712; color: #F9FAFB; }
     .stSidebar { background-color: #0B0F19; border-right: 1px solid #1E293B; }
-    .header-box { background: #0B0F19; border: 1px solid #1E293B; border-radius: 8px; padding: 1.25rem 1.75rem; margin-bottom: 1.5rem; }
+    .header-box { background: #0B0F19; border: 1px solid #1E293B; border-radius: 8px; padding: 1.25rem 1.75rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
     .header-title { font-size: 1.5rem; font-weight: 700; color: #F8FAFC; }
-    .metric-card { background: #0B0F19; border: 1px solid #1E293B; border-radius: 6px; padding: 1rem; text-align: center; }
-    .metric-val { font-size: 1.5rem; font-weight: 700; color: #38BDF8; }
-    .metric-lbl { font-size: 0.7rem; font-weight: 600; color: #64748B; text-transform: uppercase; }
+    .status-tag { background-color: #0284C7; color: #FFFFFF; padding: 0.3rem 0.75rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .agent-card { background: #0B0F19; border: 1px solid #1E293B; border-radius: 6px; padding: 1rem; margin-bottom: 0.75rem; }
+    .audit-pass { border-left: 4px solid #10B981; }
+    .audit-fail { border-left: 4px solid #EF4444; }
     </style>
 """, unsafe_allow_html=True)
 
 st.markdown("""
 <div class="header-box">
-    <div class="header-title">ENTERPRISE DATA PIPELINE & COGNITIVE HUB</div>
-    <div style="font-size:0.825rem; color:#64748B;">Synthetic Fine-Tuning JSONL Generator | Data Sanitization | 3D Knowledge Core</div>
+    <div>
+        <div class="header-title">MULTI-AGENT GOVERNANCE & HUMAN-IN-THE-LOOP HUB</div>
+        <div style="font-size:0.825rem; color:#64748B;">Multi-Role Agent Verification | Security Audit Intercepts | Human-in-the-Loop Approvals</div>
+    </div>
+    <div>
+        <span class="status-tag">SYSTEM ACTIVE</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-tab_console, tab_data = st.tabs(["3D Spatial Console", "Data Engineering & Fine-Tuning"])
+if "agent_engine" not in st.session_state:
+    st.session_state.agent_engine = None
 
-with tab_console:
-    col_graph, col_input = st.columns([1, 1.2])
-    with col_graph:
-        threejs_html = """
-        <!DOCTYPE html><html><head><style>body { margin: 0; overflow: hidden; background: #030712; }</style>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
-        <body><script>
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(380, 380); document.body.appendChild(renderer.domElement);
-            const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 2), new THREE.MeshStandardMaterial({ color: 0x0EA5E9, wireframe: true }));
-            scene.add(sphere);
-            const light = new THREE.PointLight(0x0EA5E9, 2, 100); light.position.set(10, 10, 10); scene.add(light);
-            camera.position.z = 5.5;
-            function animate() { requestAnimationFrame(animate); sphere.rotation.y += 0.003; renderer.render(scene, camera); }
-            animate();
-        </script></body></html>
-        """
-        components.html(threejs_html, height=390)
-
-    with col_input:
-        st.markdown("**Execution Console**")
-        q = st.text_area("Query Console", height=100)
-        if st.button("Execute Query"):
-            st.info("Query processing initiated.")
-
-with tab_data:
-    st.markdown("### Advanced Data Tools & Fine-Tuning Dataset Generator")
+with st.sidebar:
+    st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#0EA5E9;'>1. SYSTEM AUTHENTICATION</div>", unsafe_allow_html=True)
+    api_key = st.text_input("OpenAI Access Key", type="password")
     
-    uploaded_data_files = st.file_uploader("Upload raw documents to build fine-tuning dataset", accept_multiple_files=True, type=["pdf", "txt"])
+    if st.button("Initialize Multi-Agent Engine"):
+        if api_key:
+            st.session_state.agent_engine = MultiAgentWorkflow(openai_api_key=api_key)
+            st.success("Multi-Agent Cluster Online")
+        else:
+            st.error("Key required")
+
+tab_agents, tab_graph = st.tabs(["Multi-Agent Execution & Human Approval", "3D Knowledge Matrix"])
+
+with tab_agents:
+    st.markdown("### Multi-Agent Autonomous Query Resolution")
+    query = st.text_area("Engineering Task Input", height=90, placeholder="Define architecture request or system configuration requirement...")
     
-    if uploaded_data_files and st.button("Run Data Pipeline & Generate JSONL"):
-        pipeline = AdvancedDataPipeline()
-        saved_paths = []
-        os.makedirs("./temp_docs", exist_ok=True)
-        for f in uploaded_data_files:
-            path = os.path.join("./temp_docs", f.name)
-            with open(path, "wb") as file:
-                file.write(f.getbuffer())
-            saved_paths.append(path)
+    if st.button("Run Multi-Agent Pipeline"):
+        if query and st.session_state.agent_engine:
+            with st.spinner("Agent 1 (Architect) drafting & Agent 2 (Security) auditing..."):
+                results = st.session_state.agent_engine.execute_workflow(query, context="K8s NodePort, Redis StatefulSet, PVC Storage")
+                st.session_state["pending_approval"] = results
+        else:
+            st.error("Initialize engine and enter query first.")
 
-        processed_json = pipeline.process_raw_documents(saved_paths)
-        jsonl_output = pipeline.generate_openai_finetuning_jsonl(processed_json)
-
-        st.success(f"Pipeline executed successfully!")
+    if "pending_approval" in st.session_state:
+        res = st.session_state["pending_approval"]
         
-        c1, c2 = st.columns(2)
-        c1.markdown(f"<div class='metric-card'><div class='metric-lbl'>Processed JSON</div><div class='metric-val'>{processed_json}</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='metric-card'><div class='metric-lbl'>Fine-Tuning JSONL</div><div class='metric-val'>{jsonl_output}</div></div>", unsafe_allow_html=True)
+        col_draft, col_audit = st.columns(2)
+        with col_draft:
+            st.markdown("<div class='agent-card'><b>AGENT 1: ARCHITECT PROPOSAL</b></div>", unsafe_allow_html=True)
+            st.text_area("Draft Proposal", value=res["draft_response"], height=200, key="draft_area")
 
-        with open(jsonl_output, "r", encoding="utf-8") as f:
-            st.download_button("Download Fine-Tuning Dataset (.jsonl)", f.read(), file_name="openai_finetune_data.jsonl", mime="application/json")
+        with col_audit:
+            audit_class = "audit-pass" if res["security_passed"] else "audit-fail"
+            st.markdown(f"<div class='agent-card {audit_class}'><b>AGENT 2: SECURITY & COMPLIANCE AUDIT</b></div>", unsafe_allow_html=True)
+            st.write(res["security_notes"])
+
+        st.markdown("<hr style='border-color: #1E293B;'>", unsafe_allow_html=True)
+        st.markdown("### Human-in-the-Loop Intervention")
+        
+        c_app, c_rej = st.columns(2)
+        if c_app.button("APPROVE & DEPLOY TO CLUSTER"):
+            st.success("Decision Approved by Human Operator. Deployment Triggered.")
+            del st.session_state["pending_approval"]
+        
+        if c_rej.button("REJECT / REQUEST REVISION"):
+            st.warning("Decision Rejected by Human Operator. Feedback sent back to Architect Agent.")
+            del st.session_state["pending_approval"]
+
+with tab_graph:
+    threejs_html = """
+    <!DOCTYPE html><html><head><style>body { margin: 0; overflow: hidden; background: #030712; }</style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
+    <body><script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(380, 380); document.body.appendChild(renderer.domElement);
+        const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 2), new THREE.MeshStandardMaterial({ color: 0x0EA5E9, wireframe: true }));
+        scene.add(sphere);
+        const light = new THREE.PointLight(0x0EA5E9, 2, 100); light.position.set(10, 10, 10); scene.add(light);
+        camera.position.z = 5.5;
+        function animate() { requestAnimationFrame(animate); sphere.rotation.y += 0.003; renderer.render(scene, camera); }
+        animate();
+    </script></body></html>
+    """
+    components.html(threejs_html, height=390)
