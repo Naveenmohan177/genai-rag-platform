@@ -1,0 +1,24 @@
+﻿apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: qdrant-vector-db
+  namespace: default
+spec:
+  serviceName: qdrant
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qdrant
+  template:
+    metadata:
+      labels:
+        app: qdrant
+    spec:
+      containers:
+      - name: qdrant
+        image: qdrant/qdrant:v1.9.0
+        ports:
+        - containerPort: 6333
+          name: http
+        - containerPort: 6334
+          name: grpc
