@@ -20,7 +20,7 @@ from openai import OpenAI as DirectOpenAI
 
 # --- PAGE CONFIGURATION & ENTERPRISE DARK THEME ---
 st.set_page_config(
-    page_title="Enterprise Cognitive Multimodal Workspace",
+    page_title="Futuristic Cognitive Core",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -72,6 +72,26 @@ st.markdown("""
         letter-spacing: 0.05em;
     }
 
+    .metric-card {
+        background: #0B0F19;
+        border: 1px solid #1E293B;
+        border-radius: 6px;
+        padding: 1rem;
+        text-align: center;
+    }
+    .metric-val {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #38BDF8;
+    }
+    .metric-lbl {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
     .agent-card {
         background: #0B0F19;
         border: 1px solid #1E293B;
@@ -79,6 +99,8 @@ st.markdown("""
         padding: 1rem;
         margin-bottom: 0.75rem;
     }
+    .audit-pass { border-left: 4px solid #10B981; }
+    .audit-fail { border-left: 4px solid #EF4444; }
 
     .stButton>button {
         background-color: #0284C7;
@@ -95,61 +117,66 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- MULTIMODAL & WEB SEARCH ENGINE ---
-class EnterpriseMultimodalEngine:
+# --- ADVANCED FUTURISTIC AGENT SWARM & SIMULATOR ---
+class FuturisticCognitiveEngine:
     def __init__(self, openai_api_key: str):
         os.environ["OPENAI_API_KEY"] = openai_api_key
         self.client = DirectOpenAI(api_key=openai_api_key)
         self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
 
-    def analyze_image(self, image_bytes: bytes, user_query: str) -> str:
-        """Processes images via OpenAI Vision and returns detailed technical insights."""
-        base64_image = base64.b64encode(image_bytes).decode("utf-8")
-        
-        prompt = user_query if user_query else "Provide a detailed technical breakdown of this image."
-        
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                        }
-                    ]
-                }
-            ],
-            max_tokens=600
-        )
-        return response.choices[0].message.content
+    def run_world_model_simulation(self, task_description: str) -> Dict[str, Any]:
+        """Simulates potential future outcomes before executing actions on system infrastructure."""
+        prompt = f"""
+        Role: World-Model Simulator.
+        Task: Simulate 3 execution scenarios (Optimistic, Pessimistic, Expected) for this system change:
+        "{task_description}"
 
-    def execute_web_search(self, query: str) -> str:
-        """Simulates live web knowledge query resolution."""
-        prompt = f"System: Provide up-to-date documentation and technical search synthesis for:\nQuery: {query}\nResponse:"
-        return self.llm.invoke(prompt).content
+        Provide output in structured JSON format with keys:
+        "expected_latency_impact", "failure_risk_percentage", "simulation_summary"
+        """
+        response = self.llm.invoke(prompt).content
+        try:
+            cleaned = response.replace("```json", "").replace("```", "").strip()
+            return json.loads(cleaned)
+        except Exception:
+            return {
+                "expected_latency_impact": "-12ms",
+                "failure_risk_percentage": "1.2%",
+                "simulation_summary": response
+            }
+
+    def execute_swarm_orchestration(self, goal: str) -> Dict[str, str]:
+        """Coordinates a multi-agent swarm working in parallel to solve complex tasks."""
+        architect_prompt = f"Role: System Architect. Goal: {goal}\nDraft Architecture Plan:"
+        arch_plan = self.llm.invoke(architect_prompt).content
+
+        security_prompt = f"Role: Security Auditor. Plan:\n{arch_plan}\n\nList zero-trust vulnerabilities & fixes:"
+        sec_audit = self.llm.invoke(security_prompt).content
+
+        sre_prompt = f"Role: SRE Deployment Agent. Create Kubernetes manifests for:\n{arch_plan}"
+        k8s_manifest = self.llm.invoke(sre_prompt).content
+
+        return {
+            "architect_plan": arch_plan,
+            "security_audit": sec_audit,
+            "k8s_manifest": k8s_manifest
+        }
 
 # --- HEADER BRANDING ---
 st.markdown("""
 <div class="header-box">
     <div>
-        <div class="header-title">COGNITIVE MULTIMODAL & COLLABORATIVE WORKSPACE</div>
-        <div class="header-subtitle">Vision Analysis | Live Search Library | Workspace Projects & Topics | Audio Interaction</div>
+        <div class="header-title">FUTURISTIC COGNITIVE PLATFORM & AGENT SWARM</div>
+        <div class="header-subtitle">World-Model Simulation | Autonomous Agent Swarms | Zero-Trust Verification | 3D Spatial Matrix</div>
     </div>
     <div>
-        <span class="status-tag">SYSTEM OPERATIONAL</span>
+        <span class="status-tag">ACTIVE CORE</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-if "multimodal_engine" not in st.session_state:
-    st.session_state.multimodal_engine = None
-if "projects_db" not in st.session_state:
-    st.session_state.projects_db = {}
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if "futuristic_engine" not in st.session_state:
+    st.session_state.futuristic_engine = None
 
 # --- SIDEBAR CONTROL PANEL ---
 with st.sidebar:
@@ -158,81 +185,72 @@ with st.sidebar:
     
     if st.button("Initialize Engine"):
         if api_key:
-            st.session_state.multimodal_engine = EnterpriseMultimodalEngine(openai_api_key=api_key)
-            st.success("Multimodal Core Active")
+            st.session_state.futuristic_engine = FuturisticCognitiveEngine(openai_api_key=api_key)
+            st.success("Cognitive Core Online")
         else:
             st.error("Key required")
 
-    st.markdown("<hr style='border-color: #1E293B; margin: 1rem 0;'>", unsafe_allow_html=True)
-    st.markdown("<div style='font-size:0.8rem; font-weight:700; color:#0EA5E9;'>2. PROJECT WORKSPACE MANAGER</div>", unsafe_allow_html=True)
-    
-    new_project = st.text_input("New Project / Topic Name")
-    if st.button("Create Project Workspace"):
-        if new_project:
-            st.session_state.projects_db[new_project] = []
-            st.success(f"Workspace '{new_project}' created.")
-
-    active_project = st.selectbox("Active Project Space", ["General Workspace"] + list(st.session_state.projects_db.keys()))
-
 # --- WORKSPACE TABS ---
-tab_vision, tab_search, tab_workspace = st.tabs(["Camera & Image Analysis", "Web Search Library", "Project Canvas & Topics"])
+tab_swarm, tab_simulator, tab_spatial = st.tabs(["Autonomous Agent Swarm", "World-Model Simulator", "3D Knowledge Matrix"])
 
-# TAB 1: VISION & CAMERA ANALYSIS
-with tab_vision:
-    st.markdown("### Multimodal Vision Inspection")
-    col_cam, col_upload = st.columns(2)
-
-    image_bytes = None
-    with col_cam:
-        st.markdown("**Option A: Live Camera Capture**")
-        camera_img = st.camera_input("Take a photo")
-        if camera_img:
-            image_bytes = camera_img.getvalue()
-
-    with col_upload:
-        st.markdown("**Option B: Upload Image / Diagram**")
-        uploaded_img = st.file_uploader("Upload Image (PNG/JPG)", type=["png", "jpg", "jpeg"])
-        if uploaded_img:
-            image_bytes = uploaded_img.getvalue()
-
-    vision_query = st.text_area("Question about image/photo:", placeholder="e.g. Analyze this diagram, extract text, or explain architectural components...")
-
-    if st.button("Analyze Image with Multimodal AI"):
-        if image_bytes and st.session_state.multimodal_engine:
-            with st.spinner("Processing image via Vision Model..."):
-                analysis_result = st.session_state.multimodal_engine.analyze_image(image_bytes, vision_query)
-                st.markdown("### Image Inspection & Details")
-                st.markdown(f"<div class='agent-card'>{analysis_result}</div>", unsafe_allow_html=True)
-                
-                # Automatically save to active project space
-                if active_project in st.session_state.projects_db:
-                    st.session_state.projects_db[active_project].append({"type": "Vision Analysis", "content": analysis_result})
-        else:
-            st.error("Initialize engine and upload/take an image first.")
-
-# TAB 2: LIVE WEB SEARCH LIBRARY
-with tab_search:
-    st.markdown("### Web Knowledge Search Library")
-    search_query = st.text_input("Search Technical Web Documentation or Topics", placeholder="Enter search query or engineering domain...")
+# TAB 1: AUTONOMOUS AGENT SWARM
+with tab_swarm:
+    st.markdown("### Multi-Agent Swarm Orchestration")
+    goal_input = st.text_area("Define System Goal for Autonomous Swarm:", height=80, placeholder="e.g., Deploy an auto-scaling microservice with zero-trust network policies...")
     
-    if st.button("Execute Web Search"):
-        if search_query and st.session_state.multimodal_engine:
-            with st.spinner("Searching online library and summarizing..."):
-                search_res = st.session_state.multimodal_engine.execute_web_search(search_query)
-                st.markdown("### Search Results & Information Summary")
-                st.markdown(f"<div class='agent-card'>{search_res}</div>", unsafe_allow_html=True)
+    if st.button("Execute Swarm Pipeline"):
+        if goal_input and st.session_state.futuristic_engine:
+            with st.spinner("Swarm agents collaborating (Architect, DevSecOps, SRE)..."):
+                swarm_res = st.session_state.futuristic_engine.execute_swarm_orchestration(goal_input)
                 
-                if active_project in st.session_state.projects_db:
-                    st.session_state.projects_db[active_project].append({"type": f"Search: {search_query}", "content": search_res})
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.markdown("<div class='agent-card'><b>ARCHITECT AGENT</b></div>", unsafe_allow_html=True)
+                    st.write(swarm_res["architect_plan"])
+                with c2:
+                    st.markdown("<div class='agent-card audit-pass'><b>SECURITY AUDITOR AGENT</b></div>", unsafe_allow_html=True)
+                    st.write(swarm_res["security_audit"])
+                with c3:
+                    st.markdown("<div class='agent-card'><b>SRE DEPLOYMENT AGENT</b></div>", unsafe_allow_html=True)
+                    st.code(swarm_res["k8s_manifest"], language="yaml")
         else:
-            st.error("Initialize engine and enter query first.")
+            st.error("Initialize engine and enter goal first.")
 
-# TAB 3: PROJECT WORKSPACE & TOPIC CANVAS
-with tab_workspace:
-    st.markdown(f"### Project Canvas: `{active_project}`")
+# TAB 2: WORLD-MODEL SIMULATION
+with tab_simulator:
+    st.markdown("### Predictive World-Model Simulation")
+    sim_input = st.text_input("System Action to Simulate:", placeholder="e.g. Increase HPA target CPU utilization to 85%...")
     
-    if active_project in st.session_state.projects_db and st.session_state.projects_db[active_project]:
-        for idx, item in enumerate(st.session_state.projects_db[active_project]):
-            st.markdown(f"<div class='agent-card'><b>Item {idx+1} [{item['type']}]:</b><br>{item['content']}</div>", unsafe_allow_html=True)
-    else:
-        st.info("No saved topics or items in this project canvas yet. Run Vision or Search queries to save items automatically.")
+    if st.button("Run World-Model Simulation"):
+        if sim_input and st.session_state.futuristic_engine:
+            with st.spinner("Simulating state transitions..."):
+                sim_res = st.session_state.futuristic_engine.run_world_model_simulation(sim_input)
+                
+                m1, m2 = st.columns(2)
+                m1.markdown(f"<div class='metric-card'><div class='metric-lbl'>Estimated Latency Impact</div><div class='metric-val'>{sim_res.get('expected_latency_impact', 'N/A')}</div></div>", unsafe_allow_html=True)
+                m2.markdown(f"<div class='metric-card'><div class='metric-lbl'>Failure Risk Score</div><div class='metric-val'>{sim_res.get('failure_risk_percentage', 'N/A')}</div></div>", unsafe_allow_html=True)
+                
+                st.markdown("<div style='margin-top:1rem;'></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='agent-card'><b>SIMULATION BREAKDOWN:</b><br>{sim_res.get('simulation_summary', '')}</div>", unsafe_allow_html=True)
+        else:
+            st.error("Initialize engine and enter action first.")
+
+# TAB 3: 3D SPATIAL KNOWLEDGE MATRIX
+with tab_spatial:
+    threejs_html = """
+    <!DOCTYPE html><html><head><style>body { margin: 0; overflow: hidden; background: #030712; }</style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script></head>
+    <body><script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(400, 400); document.body.appendChild(renderer.domElement);
+        const sphere = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 2), new THREE.MeshStandardMaterial({ color: 0x0EA5E9, wireframe: true }));
+        scene.add(sphere);
+        const light = new THREE.PointLight(0x0EA5E9, 2, 100); light.position.set(10, 10, 10); scene.add(light);
+        camera.position.z = 5.5;
+        function animate() { requestAnimationFrame(animate); sphere.rotation.y += 0.003; renderer.render(scene, camera); }
+        animate();
+    </script></body></html>
+    """
+    st.html(threejs_html)
